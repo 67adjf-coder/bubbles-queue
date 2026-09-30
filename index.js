@@ -99,7 +99,7 @@ client.on('interactionCreate', async (interaction) => {
 > -# _ _  **game topups**  \` \`    mins-hrs
 > -# _ _  **roblx bobaks**  \` \`    mins-days
 ~~                                                        ~~
-> track your order [here](https://discord.com/channels/\({interaction.guildId}/\){QUEUE_CHANNEL_ID}) ! 𓆉
+> track your order [here](https://discord.com/channels/1507214174084927498/1539239066049060974) ! 𓆉
 > no rushing! pls, be patient.
 ~~                                                        ~~
 _ _`
@@ -118,7 +118,7 @@ _ _`
 > \(${payment}  <:hearty:1554781762813558804>\)${price}
 _ _
 -# _ _        sea shore  ~~        ~~  ${staffUser}
--# _ _        ${order_status} <a:loading:1554785960217022565>  ${getGMT8Time()}
+-# _ _        order status <a:loading:1554785960217022565>  ${getGMT8Time()}
 ~~                                                                               ~~
 _ _`;
 
