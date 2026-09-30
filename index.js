@@ -11,7 +11,7 @@ const {
 } = require('discord.js');
 const http = require('http');
 
-// Render web service keep-alive server
+// Keep-alive HTTP server for Render free web service hosting
 http.createServer((req, res) => res.end('Bot is online!')).listen(process.env.PORT || 3000);
 
 const client = new Client({
@@ -21,11 +21,12 @@ const client = new Client({
 // Configuration IDs
 const QUEUE_CHANNEL_ID = '1539239066049060974';
 const STAFF_ROLE_ID = '1533372358755221566';
+const VOUCH_URL = 'https://discord.com/channels/1507214174084927498/1507271897962778706';
 const PASTEL_BLUE = '#AEC6CF';
 
 let queueCounter = 1;
 
-// Helper to format date & time specifically in GMT+8 (Asia/Manila)
+// Helper function to generate current date & time formatted in GMT+8 (Asia/Manila)
 function getGMT8Time() {
   const options = {
     timeZone: 'Asia/Manila',
@@ -67,7 +68,7 @@ client.once('ready', async () => {
 });
 
 client.on('interactionCreate', async (interaction) => {
-  // 1. Handle Slash Command
+  // 1. Handle Slash Command Execution
   if (interaction.isChatInputCommand()) {
     if (interaction.commandName === 'queue-list') {
       // Staff Role Check
@@ -75,7 +76,7 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
       }
 
-      // Read slash command input variables
+      // Collect user option inputs
       const buyer = interaction.options.getUser('buyer');
       const item = interaction.options.getString('item');
       const info = interaction.options.getString('info');
@@ -88,7 +89,7 @@ client.on('interactionCreate', async (interaction) => {
 
       await interaction.deferReply({ ephemeral: true });
 
-      // Local Channel Embed Message
+      // Embed posted locally to the ticket channel where command was run
       const localEmbed = new EmbedBuilder()
         .setColor(PASTEL_BLUE)
         .setDescription(
@@ -99,7 +100,7 @@ client.on('interactionCreate', async (interaction) => {
 > -# _ _  **game topups**  \` \`    mins-hrs
 > -# _ _  **roblx bobaks**  \` \`    mins-days
 ~~                                                        ~~
-> track your order [here](https://discord.com/channels/1507214174084927498/1539239066049060974) ! 𓆉
+> track your order [here](https://discord.com/channels/\({interaction.guildId}/\){QUEUE_CHANNEL_ID}) ! 𓆉
 > no rushing! pls, be patient.
 ~~                                                        ~~
 _ _`
@@ -108,17 +109,17 @@ _ _`
       await interaction.channel.send({ embeds: [localEmbed] });
       await interaction.editReply({ content: 'Queue logged successfully!' });
 
-      // Queue Channel Embed Description Layout with injected string variables
+      // Embed posted to the designated Queue Tracking Channel
       const queueDescription = 
 `_ _
-     𓂃˖°𓇼   [ **tid**__a__**l** **w**~~a~~***ves*** ](https://discord.com/channels/\({interaction.guildId}/\){ticketChannelId})  ＃ __ ${currentQueueNum} __
+     𓂃 𓈒𓏸‪‪ 𓇼   [ **tid**__a__**l** **w**~~a~~***ves*** ](https://discord.com/channels/\({interaction.guildId}/\){ticketChannelId})  ＃ __ ${currentQueueNum} __
 ~~                                                                               ~~
 <:blue:1554781672992407552>    ${buyer}
-> \(${item}  <:hearty:1554781762813558804>\)${info}
-> \(${payment}  <:hearty:1554781762813558804>\)${price}
+> \({item}  <:hearty:1554781762813558804>\){info}
+> \({payment}  <:hearty:1554781762813558804>\){price}
 _ _
 -# _ _        sea shore  ~~        ~~  ${staffUser}
--# _ _        order status <a:loading:1554785960217022565>  ${getGMT8Time()}
+-# _ _        [ order status ]   ${getGMT8Time()}
 ~~                                                                               ~~
 _ _`;
 
@@ -126,7 +127,7 @@ _ _`;
         .setColor(PASTEL_BLUE)
         .setDescription(queueDescription);
 
-      // 3 Gray Action Buttons
+      // Action buttons (All gray / Secondary style)
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`queue_noted_\({ticketChannelId}_\){buyer.id}`).setEmoji('🐚').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId(`queue_proc_\({ticketChannelId}_\){buyer.id}`).setEmoji('🫧').setStyle(ButtonStyle.Secondary),
@@ -143,7 +144,7 @@ _ _`;
     }
   }
 
-  // 2. Handle Button Status Updates
+  // 2. Handle Button Updates
   if (interaction.isButton()) {
     const customId = interaction.customId;
     if (!customId.startsWith('queue_')) return;
@@ -162,59 +163,51 @@ _ _`;
     else if (action === 'proc') statusLabel = 'PROCESSING';
     else if (action === 'comp') statusLabel = 'COMPLETED';
 
-    // Update only the status/loading line
-    const lines = originalEmbed.description.split('\n');
-    const updatedLines = lines.map(line => {
-      if (line.includes('')) {
-        return `-# _ _        **${statusLabel}**   ${getGMT8Time()}`;
-      }
-      return line;
-    });
+    // Safely update only the status line without duplicating text or removing user inputs
+    const updatedDescription = originalEmbed.description.replace(
+      /-# _ _\s+(?:
+$$order status$$|(?:.?))\s+\s+.(?=\n~~)/,-# _ _        **${statusLabel}**   ${getGMT8Time()});const updatedEmbed = EmbedBuilder.from(originalEmbed)
+  .setColor(PASTEL_BLUE)
+  .setDescription(updatedDescription);
 
-    const updatedEmbed = EmbedBuilder.from(originalEmbed)
-      .setColor(PASTEL_BLUE)
-      .setDescription(updatedLines.join('\n'));
-
-    // Disable only the button that was clicked
-    const updatedComponents = interaction.message.components.map(row => {
-      const newRow = new ActionRowBuilder();
-      row.components.forEach(btn => {
-        const btnBuilder = ButtonBuilder.from(btn);
-        if (btn.customId === customId) {
-          btnBuilder.setDisabled(true);
-        }
-        newRow.addComponents(btnBuilder);
-      });
-      return newRow;
-    });
-
-    await interaction.update({ embeds: [updatedEmbed], components: updatedComponents });
-
-    // Send buyer completion notification in their ticket channel
-    if (action === 'comp') {
-      try {
-        const ticketChannel = await client.channels.fetch(ticketChannelId);
-        if (ticketChannel) {
-          const completionEmbed = new EmbedBuilder()
-            .setColor(PASTEL_BLUE)
-            .setDescription(
-`_ _
-                    **  hey there,  coral ! **  
--#    your order has been completed. kindly vouch us 
--#    within 12 hours to activate your item's warranty !
-_ _
-> -# _ _        __thank you for your trust & support !__
-\`            𓆝 𓆟 𓆞 𓆝 𓆟        \`
-_ _`
-            );
-
-          await ticketChannel.send({ content: `<@${buyerId}>`, embeds: [completionEmbed] });
-        }
-      } catch (err) {
-        console.error('Could not send message to ticket channel:', err);
-      }
+// Disable ONLY the button that was clicked
+const updatedComponents = interaction.message.components.map(row => {
+  const newRow = new ActionRowBuilder();
+  row.components.forEach(btn => {
+    const btnBuilder = ButtonBuilder.from(btn);
+    if (btn.customId === customId) {
+      btnBuilder.setDisabled(true);
     }
-  }
+    newRow.addComponents(btnBuilder);
+  });
+  return newRow;
 });
 
-client.login(process.env.DISCORD_TOKEN);
+await interaction.update({ embeds: [updatedEmbed], components: updatedComponents });
+
+// Send order completion notification with vouch link button to the ticket channel
+if (action === 'comp') {
+  try {
+    const ticketChannel = await client.channels.fetch(ticketChannelId);
+    if (ticketChannel) {
+      const completionEmbed = new EmbedBuilder()
+        .setColor(PASTEL_BLUE)
+        .setDescription(
+`_ _  hey there,  coral ! -#    your order has been completed. kindly vouch us-#    within 12 hours to activate your item's warranty !_ _-# _ _        thank you for your trust & support !`             𓆝 𓆟 𓆞 𓆝 𓆟        `_ _`);      const vouchButtonRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setLabel('vouch here')
+          .setStyle(ButtonStyle.Link)
+          .setURL(VOUCH_URL)
+      );
+
+      await ticketChannel.send({ 
+        content: `<@${buyerId}>`, 
+        embeds: [completionEmbed],
+        components: [vouchButtonRow]
+      });
+    }
+  } catch (err) {
+    console.error('Could not send message to ticket channel:', err);
+  }
+}
+}});client.login(process.env.DISCORD_TOKEN);
