@@ -114,11 +114,11 @@ _ _`
      𓂃 𓈒𓏸‪‪ 𓇼   [ **tid**__a__**l** **w**~~a~~***ves*** ](https://discord.com/channels/\({interaction.guildId}/\){ticketChannelId})  ＃ __ ${currentQueueNum} __
 ~~                                                                               ~~
 <:blue:1554781672992407552>    ${buyer}
-> \({item}  <:hearty:1554781762813558804>\){info}
-> \({payment}  <:hearty:1554781762813558804>\){price}
+> \(${item}  <:hearty:1554781762813558804>\)${info}
+> \(${payment}  <:hearty:1554781762813558804>\)${price}
 _ _
 -# _ _        sea shore  ~~        ~~  ${staffUser}
--# _ _        [ order status ]   ${getGMT8Time()}
+-# _ _        ${order_status} <a:loading:1554785960217022565>  ${getGMT8Time()}
 ~~                                                                               ~~
 _ _`;
 
