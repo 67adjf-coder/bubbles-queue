@@ -75,7 +75,7 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
       }
 
-      // Read values directly from command input
+      // Read slash command input variables
       const buyer = interaction.options.getUser('buyer');
       const item = interaction.options.getString('item');
       const info = interaction.options.getString('info');
@@ -108,7 +108,7 @@ _ _`
       await interaction.channel.send({ embeds: [localEmbed] });
       await interaction.editReply({ content: 'Queue logged successfully!' });
 
-      // Queue Channel Embed Description with injected variables
+      // Queue Channel Embed Description Layout with injected string variables
       const queueDescription = 
 `_ _
      𓂃 𓈒𓏸‪‪ 𓇼   [ **tid**__a__**l** **w**~~a~~***ves*** ](https://discord.com/channels/\({interaction.guildId}/\){ticketChannelId})  ＃ __ ${currentQueueNum} __
@@ -143,7 +143,7 @@ _ _`;
     }
   }
 
-  // 2. Handle Button Updates
+  // 2. Handle Button Status Updates
   if (interaction.isButton()) {
     const customId = interaction.customId;
     if (!customId.startsWith('queue_')) return;
@@ -162,17 +162,20 @@ _ _`;
     else if (action === 'proc') statusLabel = 'PROCESSING';
     else if (action === 'comp') statusLabel = 'COMPLETED';
 
-    // Regex replacement target matching line format: "-# _ _   "
-    const updatedDescription = originalEmbed.description.replace(
-      /-# _ _\s+.*\s+.*(?=\n~~)/,
-      `-# _ _        **${statusLabel}**   ${getGMT8Time()}`
-    );
+    // Update only the status/loading line
+    const lines = originalEmbed.description.split('\n');
+    const updatedLines = lines.map(line => {
+      if (line.includes('')) {
+        return `-# _ _        **${statusLabel}**   ${getGMT8Time()}`;
+      }
+      return line;
+    });
 
     const updatedEmbed = EmbedBuilder.from(originalEmbed)
       .setColor(PASTEL_BLUE)
-      .setDescription(updatedDescription);
+      .setDescription(updatedLines.join('\n'));
 
-    // Disable only the clicked button while leaving other buttons enabled
+    // Disable only the button that was clicked
     const updatedComponents = interaction.message.components.map(row => {
       const newRow = new ActionRowBuilder();
       row.components.forEach(btn => {
@@ -187,7 +190,7 @@ _ _`;
 
     await interaction.update({ embeds: [updatedEmbed], components: updatedComponents });
 
-    // Send buyer completion message in ticket channel
+    // Send buyer completion notification in their ticket channel
     if (action === 'comp') {
       try {
         const ticketChannel = await client.channels.fetch(ticketChannelId);
