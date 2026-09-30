@@ -26,6 +26,9 @@ const PASTEL_BLUE = '#AEC6CF';
 
 let queueCounter = 1;
 
+// Store queue details in memory keyed by ticketChannelId
+const queueStore = new Map();
+
 // Helper function to generate current date & time formatted in GMT+8 (Asia/Manila)
 function getGMT8Time() {
   const options = {
@@ -47,8 +50,8 @@ function buildQueueEmbed(guildId, ticketChannelId, queueNum, buyerId, item, info
      𓂃 𓈒𓏸‪‪ 𓇼   [ **tid**__a__**l** **w**~~a~~***ves*** ](https://discord.com/channels/\({guildId}/\){ticketChannelId})  ＃ __ ${queueNum} __
 ~~                                                                               ~~
 <:blue:1554781672992407552>    <@${buyerId}>
-> \ ${item}  <:hearty:1554781762813558804>\ ${info}
-> \ ${payment}  <:hearty:1554781762813558804>\ ${price}
+> \({item}  <:hearty:1554781762813558804>\){info}
+> \({payment}  <:hearty:1554781762813558804>\){price}
 _ _
 -# _ _        sea shore  ~~        ~~  <@${staffId}>
 -# _ _        **${statusText}**   ${getGMT8Time()}
@@ -107,6 +110,17 @@ client.on('interactionCreate', async (interaction) => {
 
       const currentQueueNum = queueCounter++;
 
+      // Store ticket data in memory
+      queueStore.set(ticketChannelId, {
+        queueNum: currentQueueNum,
+        buyerId: buyer.id,
+        item,
+        info,
+        payment,
+        price,
+        staffId: staffUser.id
+      });
+
       await interaction.deferReply({ ephemeral: true });
 
       // Embed posted locally to the ticket channel where command was run
@@ -120,7 +134,7 @@ client.on('interactionCreate', async (interaction) => {
 > -# _ _  **game topups**  \` \`    mins-hrs
 > -# _ _  **roblx bobaks**  \` \`    mins-days
 ~~                                                        ~~
-> track your order [here](https://discord.com/channels/1507214174084927498/1539239066049060974) ! 𓆉
+> track your order [here](https://discord.com/channels/\({interaction.guildId}/\){QUEUE_CHANNEL_ID}) ! 𓆉
 > no rushing! pls, be patient.
 ~~                                                        ~~
 _ _`
@@ -129,7 +143,7 @@ _ _`
       await interaction.channel.send({ embeds: [localEmbed] });
       await interaction.editReply({ content: 'Queue logged successfully!' });
 
-      // Build initial queue embed with default "[ order status ]"
+      // Build initial queue embed
       const queueEmbed = buildQueueEmbed(
         interaction.guildId,
         ticketChannelId,
@@ -143,13 +157,11 @@ _ _`
         '[ order status ]'
       );
 
-      // Encode parameters into customIds (pipe separated) to preserve them across updates
-      const dataPayload = `\({ticketChannelId}|\){currentQueueNum}|\({buyer.id}|\){encodeURIComponent(item)}|\({encodeURIComponent(info)}|\){encodeURIComponent(payment)}|\({encodeURIComponent(price)}|\){staffUser.id}`;
-
+      // Short customId (well within Discord's 100 character limit)
       const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`queue_noted_${dataPayload}`).setEmoji('🐚').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`queue_proc_${dataPayload}`).setEmoji('🫧').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`queue_comp_${dataPayload}`).setEmoji('🐋').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId(`queue_noted_${ticketChannelId}`).setEmoji('🐚').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`queue_proc_${ticketChannelId}`).setEmoji('🫧').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`queue_comp_${ticketChannelId}`).setEmoji('🐋').setStyle(ButtonStyle.Secondary)
       );
 
       const queueChannel = await client.channels.fetch(QUEUE_CHANNEL_ID);
@@ -171,32 +183,47 @@ _ _`
       return interaction.reply({ content: 'Only staff can update queue status.', ephemeral: true });
     }
 
-    const parts = customId.split('_');
-    const action = parts[1];
-    const dataPayload = parts.slice(2).join('_');
-    const [ticketChannelId, queueNum, buyerId, encItem, encInfo, encPayment, encPrice, staffId] = dataPayload.split('|');
+    const [_, action, ticketChannelId] = customId.split('_');
 
-    const item = decodeURIComponent(encItem);
-    const info = decodeURIComponent(encInfo);
-    const payment = decodeURIComponent(encPayment);
-    const price = decodeURIComponent(encPrice);
+    // Fetch data from memory, or fallback to parsing embed if bot restarted
+    let data = queueStore.get(ticketChannelId);
+
+    if (!data) {
+      // Fallback parser if bot restarted
+      const embed = interaction.message.embeds[0];
+      if (!embed || !embed.description) return;
+
+      const queueMatch = embed.description.match(/＃ __ (\d+) __/);
+      const buyerMatch = embed.description.match(/<@(\d+)>/);
+      const staffMatch = embed.description.match(/sea shore  ~~        ~~  <@(\d+)>/);
+
+      data = {
+        queueNum: queueMatch ? queueMatch[1] : '?',
+        buyerId: buyerMatch ? buyerMatch[1] : interaction.user.id,
+        item: 'Item',
+        info: 'Info',
+        payment: 'Payment',
+        price: 'Price',
+        staffId: staffMatch ? staffMatch[1] : interaction.user.id
+      };
+    }
 
     let statusLabel = '';
     if (action === 'noted') statusLabel = 'NOTED';
     else if (action === 'proc') statusLabel = 'PROCESSING';
     else if (action === 'comp') statusLabel = 'COMPLETED';
 
-    // Build the updated embed layout directly
+    // Build fresh updated embed
     const updatedEmbed = buildQueueEmbed(
       interaction.guildId,
       ticketChannelId,
-      queueNum,
-      buyerId,
-      item,
-      info,
-      payment,
-      price,
-      staffId,
+      data.queueNum,
+      data.buyerId,
+      data.item,
+      data.info,
+      data.payment,
+      data.price,
+      data.staffId,
       statusLabel
     );
 
@@ -215,7 +242,7 @@ _ _`
 
     await interaction.update({ embeds: [updatedEmbed], components: updatedComponents });
 
-    // Send order completion notification with vouch link button to the ticket channel
+    // Send completion notification to ticket channel
     if (action === 'comp') {
       try {
         const ticketChannel = await client.channels.fetch(ticketChannelId);
@@ -241,7 +268,7 @@ _ _`
           );
 
           await ticketChannel.send({ 
-            content: `<@${buyerId}>`, 
+            content: `<@${data.buyerId}>`, 
             embeds: [completionEmbed],
             components: [vouchButtonRow]
           });
