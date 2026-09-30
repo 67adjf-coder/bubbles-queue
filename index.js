@@ -40,6 +40,26 @@ function getGMT8Time() {
   return new Intl.DateTimeFormat('en-US', options).format(new Date());
 }
 
+// Helper function to build the exact Queue Embed layout
+function buildQueueEmbed(guildId, ticketChannelId, queueNum, buyerId, item, info, payment, price, staffId, statusText) {
+  const description = 
+`_ _
+     𓂃 𓈒𓏸‪‪ 𓇼   [ **tid**__a__**l** **w**~~a~~***ves*** ](https://discord.com/channels/\({guildId}/\){ticketChannelId})  ＃ __ ${queueNum} __
+~~                                                                               ~~
+<:blue:1554781672992407552>    <@${buyerId}>
+> \ ${item}  <:hearty:1554781762813558804>\ ${info}
+> \ ${payment}  <:hearty:1554781762813558804>\ ${price}
+_ _
+-# _ _        sea shore  ~~        ~~  <@${staffId}>
+-# _ _        **${statusText}**   ${getGMT8Time()}
+~~                                                                               ~~
+_ _`;
+
+  return new EmbedBuilder()
+    .setColor(PASTEL_BLUE)
+    .setDescription(description);
+}
+
 // Slash command definition
 const commands = [
   new SlashCommandBuilder()
@@ -100,7 +120,7 @@ client.on('interactionCreate', async (interaction) => {
 > -# _ _  **game topups**  \` \`    mins-hrs
 > -# _ _  **roblx bobaks**  \` \`    mins-days
 ~~                                                        ~~
-> track your order [here](https://discord.com/channels/\({interaction.guildId}/\){QUEUE_CHANNEL_ID}) ! 𓆉
+> track your order [here](https://discord.com/channels/1507214174084927498/1539239066049060974) ! 𓆉
 > no rushing! pls, be patient.
 ~~                                                        ~~
 _ _`
@@ -109,29 +129,27 @@ _ _`
       await interaction.channel.send({ embeds: [localEmbed] });
       await interaction.editReply({ content: 'Queue logged successfully!' });
 
-      // Embed posted to the designated Queue Tracking Channel
-      const queueDescription = 
-`_ _
-     𓂃 𓈒𓏸‪‪ 𓇼   [ **tid**__a__**l** **w**~~a~~***ves*** ](https://discord.com/channels/\({interaction.guildId}/\){ticketChannelId})  ＃ __ ${currentQueueNum} __
-~~                                                                               ~~
-<:blue:1554781672992407552>    ${buyer}
-> \ ${item}  <:hearty:1554781762813558804>\ ${info}
-> \ ${payment}  <:hearty:1554781762813558804>\ ${price}
-_ _
--# _ _        sea shore  ~~        ~~  ${staffUser}
--# _ _        [ order status ]   ${getGMT8Time()}
-~~                                                                               ~~
-_ _`;
+      // Build initial queue embed with default "[ order status ]"
+      const queueEmbed = buildQueueEmbed(
+        interaction.guildId,
+        ticketChannelId,
+        currentQueueNum,
+        buyer.id,
+        item,
+        info,
+        payment,
+        price,
+        staffUser.id,
+        '[ order status ]'
+      );
 
-      const queueEmbed = new EmbedBuilder()
-        .setColor(PASTEL_BLUE)
-        .setDescription(queueDescription);
+      // Encode parameters into customIds (pipe separated) to preserve them across updates
+      const dataPayload = `\({ticketChannelId}|\){currentQueueNum}|\({buyer.id}|\){encodeURIComponent(item)}|\({encodeURIComponent(info)}|\){encodeURIComponent(payment)}|\({encodeURIComponent(price)}|\){staffUser.id}`;
 
-      // Action buttons (All gray / Secondary style)
       const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`queue_noted_\({ticketChannelId}_\){buyer.id}`).setEmoji('🐚').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`queue_proc_\({ticketChannelId}_\){buyer.id}`).setEmoji('🫧').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`queue_comp_\({ticketChannelId}_\){buyer.id}`).setEmoji('🐋').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId(`queue_noted_${dataPayload}`).setEmoji('🐚').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`queue_proc_${dataPayload}`).setEmoji('🫧').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`queue_comp_${dataPayload}`).setEmoji('🐋').setStyle(ButtonStyle.Secondary)
       );
 
       const queueChannel = await client.channels.fetch(QUEUE_CHANNEL_ID);
@@ -153,28 +171,34 @@ _ _`;
       return interaction.reply({ content: 'Only staff can update queue status.', ephemeral: true });
     }
 
-    const [_, action, ticketChannelId, buyerId] = customId.split('_');
+    const parts = customId.split('_');
+    const action = parts[1];
+    const dataPayload = parts.slice(2).join('_');
+    const [ticketChannelId, queueNum, buyerId, encItem, encInfo, encPayment, encPrice, staffId] = dataPayload.split('|');
 
-    const originalEmbed = interaction.message.embeds[0];
-    if (!originalEmbed || !originalEmbed.description) return;
+    const item = decodeURIComponent(encItem);
+    const info = decodeURIComponent(encInfo);
+    const payment = decodeURIComponent(encPayment);
+    const price = decodeURIComponent(encPrice);
 
     let statusLabel = '';
     if (action === 'noted') statusLabel = 'NOTED';
     else if (action === 'proc') statusLabel = 'PROCESSING';
     else if (action === 'comp') statusLabel = 'COMPLETED';
 
-    // Safely update ONLY the order status line (the line containing the animated loading emoji)
-    const lines = originalEmbed.description.split('\n');
-    const updatedLines = lines.map(line => {
-      if (line.includes('')) {
-        return `-# _ _        **${statusLabel}**   ${getGMT8Time()}`;
-      }
-      return line;
-    });
-
-    const updatedEmbed = EmbedBuilder.from(originalEmbed)
-      .setColor(PASTEL_BLUE)
-      .setDescription(updatedLines.join('\n'));
+    // Build the updated embed layout directly
+    const updatedEmbed = buildQueueEmbed(
+      interaction.guildId,
+      ticketChannelId,
+      queueNum,
+      buyerId,
+      item,
+      info,
+      payment,
+      price,
+      staffId,
+      statusLabel
+    );
 
     // Disable ONLY the button that was clicked
     const updatedComponents = interaction.message.components.map(row => {
