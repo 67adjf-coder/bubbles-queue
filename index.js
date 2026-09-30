@@ -39,7 +39,7 @@ function getGMT8Time() {
   return new Intl.DateTimeFormat('en-US', options).format(new Date());
 }
 
-// Command setup
+// Slash command definition
 const commands = [
   new SlashCommandBuilder()
     .setName('queue-list')
@@ -75,6 +75,7 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
       }
 
+      // Read values directly from command input
       const buyer = interaction.options.getUser('buyer');
       const item = interaction.options.getString('item');
       const info = interaction.options.getString('info');
@@ -107,7 +108,7 @@ _ _`
       await interaction.channel.send({ embeds: [localEmbed] });
       await interaction.editReply({ content: 'Queue logged successfully!' });
 
-      // Initial Queue Description Layout
+      // Queue Channel Embed Description with injected variables
       const queueDescription = 
 `_ _
      𓂃 𓈒𓏸‪‪ 𓇼   [ **tid**__a__**l** **w**~~a~~***ves*** ](https://discord.com/channels/\({interaction.guildId}/\){ticketChannelId})  ＃ __ ${currentQueueNum} __
@@ -154,26 +155,24 @@ _ _`;
     const [_, action, ticketChannelId, buyerId] = customId.split('_');
 
     const originalEmbed = interaction.message.embeds[0];
-    if (!originalEmbed) return;
-
-    // Replace status text and update timestamp to GMT+8
-    const updateEmbedText = (text, newStatus) => {
-      const formattedDate = getGMT8Time();
-      return text.replace(/-# _ _\s+.*\s+.*(\r?\n|\()/g, `-# _ _        **\){newStatus}**   ${formattedDate}\n`);
-    };
+    if (!originalEmbed || !originalEmbed.description) return;
 
     let statusLabel = '';
     if (action === 'noted') statusLabel = 'NOTED';
     else if (action === 'proc') statusLabel = 'PROCESSING';
     else if (action === 'comp') statusLabel = 'COMPLETED';
 
-    const updatedDescription = updateEmbedText(originalEmbed.description, statusLabel);
+    // Regex replacement target matching line format: "-# _ _   "
+    const updatedDescription = originalEmbed.description.replace(
+      /-# _ _\s+.*\s+.*(?=\n~~)/,
+      `-# _ _        **${statusLabel}**   ${getGMT8Time()}`
+    );
 
     const updatedEmbed = EmbedBuilder.from(originalEmbed)
       .setColor(PASTEL_BLUE)
       .setDescription(updatedDescription);
 
-    // Disable ONLY the clicked button while keeping others active
+    // Disable only the clicked button while leaving other buttons enabled
     const updatedComponents = interaction.message.components.map(row => {
       const newRow = new ActionRowBuilder();
       row.components.forEach(btn => {
@@ -188,7 +187,7 @@ _ _`;
 
     await interaction.update({ embeds: [updatedEmbed], components: updatedComponents });
 
-    // Send completion alert to ticket channel
+    // Send buyer completion message in ticket channel
     if (action === 'comp') {
       try {
         const ticketChannel = await client.channels.fetch(ticketChannelId);
