@@ -50,8 +50,8 @@ function buildQueueEmbed(guildId, ticketChannelId, queueNum, buyerId, item, info
      𓂃 𓈒𓏸‪‪ 𓇼   [ **tid**__a__**l** **w**~~a~~***ves*** ](https://discord.com/channels/\({guildId}/\){ticketChannelId})  ＃ __ ${queueNum} __
 ~~                                                                               ~~
 <:blue:1554781672992407552>    <@${buyerId}>
-> \({item}  <:hearty:1554781762813558804>\){info}
-> \({payment}  <:hearty:1554781762813558804>\){price}
+> \ ${item}  <:hearty:1554781762813558804>\ ${info}
+> \ ${payment}  <:hearty:1554781762813558804>\ ${price}
 _ _
 -# _ _        sea shore  ~~        ~~  <@${staffId}>
 -# _ _        **${statusText}**   ${getGMT8Time()}
@@ -134,7 +134,7 @@ client.on('interactionCreate', async (interaction) => {
 > -# _ _  **game topups**  \` \`    mins-hrs
 > -# _ _  **roblx bobaks**  \` \`    mins-days
 ~~                                                        ~~
-> track your order [here](https://discord.com/channels/\({interaction.guildId}/\){QUEUE_CHANNEL_ID}) ! 𓆉
+> track your order [here](https://discord.com/channels/1507214174084927498/1539239066049060974) ! 𓆉
 > no rushing! pls, be patient.
 ~~                                                        ~~
 _ _`
