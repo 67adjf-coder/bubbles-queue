@@ -163,51 +163,70 @@ _ _`;
     else if (action === 'proc') statusLabel = 'PROCESSING';
     else if (action === 'comp') statusLabel = 'COMPLETED';
 
-    // Safely update only the status line without duplicating text or removing user inputs
-    const updatedDescription = originalEmbed.description.replace(
-      /-# _ _\s+(?:
-$$order status$$|(?:.?))\s+\s+.(?=\n~~)/,-# _ _        **${statusLabel}**   ${getGMT8Time()});const updatedEmbed = EmbedBuilder.from(originalEmbed)
-  .setColor(PASTEL_BLUE)
-  .setDescription(updatedDescription);
+    // Safely update only the line containing the animated loading emoji
+    const lines = originalEmbed.description.split('\n');
+    const updatedLines = lines.map(line => {
+      if (line.includes('')) {
+        return `-# _ _        **${statusLabel}**   ${getGMT8Time()}`;
+      }
+      return line;
+    });
 
-// Disable ONLY the button that was clicked
-const updatedComponents = interaction.message.components.map(row => {
-  const newRow = new ActionRowBuilder();
-  row.components.forEach(btn => {
-    const btnBuilder = ButtonBuilder.from(btn);
-    if (btn.customId === customId) {
-      btnBuilder.setDisabled(true);
+    const updatedEmbed = EmbedBuilder.from(originalEmbed)
+      .setColor(PASTEL_BLUE)
+      .setDescription(updatedLines.join('\n'));
+
+    // Disable ONLY the button that was clicked
+    const updatedComponents = interaction.message.components.map(row => {
+      const newRow = new ActionRowBuilder();
+      row.components.forEach(btn => {
+        const btnBuilder = ButtonBuilder.from(btn);
+        if (btn.customId === customId) {
+          btnBuilder.setDisabled(true);
+        }
+        newRow.addComponents(btnBuilder);
+      });
+      return newRow;
+    });
+
+    await interaction.update({ embeds: [updatedEmbed], components: updatedComponents });
+
+    // Send order completion notification with vouch link button to the ticket channel
+    if (action === 'comp') {
+      try {
+        const ticketChannel = await client.channels.fetch(ticketChannelId);
+        if (ticketChannel) {
+          const completionEmbed = new EmbedBuilder()
+            .setColor(PASTEL_BLUE)
+            .setDescription(
+`_ _
+                    **  hey there,  coral ! ** 
+-#    your order has been completed. kindly vouch us 
+-#    within 12 hours to activate your item's warranty !
+_ _
+> -# _ _        thank you for your trust & support !
+\`             𓆝 𓆟 𓆞 𓆝 𓆟        \`
+_ _`
+            );
+
+          const vouchButtonRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setLabel('vouch here')
+              .setStyle(ButtonStyle.Link)
+              .setURL(VOUCH_URL)
+          );
+
+          await ticketChannel.send({ 
+            content: `<@${buyerId}>`, 
+            embeds: [completionEmbed],
+            components: [vouchButtonRow]
+          });
+        }
+      } catch (err) {
+        console.error('Could not send message to ticket channel:', err);
+      }
     }
-    newRow.addComponents(btnBuilder);
-  });
-  return newRow;
+  }
 });
 
-await interaction.update({ embeds: [updatedEmbed], components: updatedComponents });
-
-// Send order completion notification with vouch link button to the ticket channel
-if (action === 'comp') {
-  try {
-    const ticketChannel = await client.channels.fetch(ticketChannelId);
-    if (ticketChannel) {
-      const completionEmbed = new EmbedBuilder()
-        .setColor(PASTEL_BLUE)
-        .setDescription(
-`_ _  hey there,  coral ! -#    your order has been completed. kindly vouch us-#    within 12 hours to activate your item's warranty !_ _-# _ _        thank you for your trust & support !`             𓆝 𓆟 𓆞 𓆝 𓆟        `_ _`);      const vouchButtonRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setLabel('vouch here')
-          .setStyle(ButtonStyle.Link)
-          .setURL(VOUCH_URL)
-      );
-
-      await ticketChannel.send({ 
-        content: `<@${buyerId}>`, 
-        embeds: [completionEmbed],
-        components: [vouchButtonRow]
-      });
-    }
-  } catch (err) {
-    console.error('Could not send message to ticket channel:', err);
-  }
-}
-}});client.login(process.env.DISCORD_TOKEN);
+client.login(process.env.DISCORD_TOKEN);
