@@ -112,7 +112,7 @@ _ _`
       // Embed posted to the designated Queue Tracking Channel
       const queueDescription = 
 `_ _
-     𓂃𓈒𓏸‪‪𓇼   [ **tid**__a__**l** **w**~~a~~***ves*** ](https://discord.com/channels/\({interaction.guildId}/\){ticketChannelId})  ＃ __ ${currentQueueNum} __
+     𓂃 𓈒𓏸‪‪ 𓇼   [ **tid**__a__**l** **w**~~a~~***ves*** ](https://discord.com/channels/\({interaction.guildId}/\){ticketChannelId})  ＃ __ ${currentQueueNum} __
 ~~                                                                               ~~
 <:blue:1554781672992407552>    ${buyer}
 > \ ${item}  <:hearty:1554781762813558804>\ ${info}
@@ -163,7 +163,7 @@ _ _`;
     else if (action === 'proc') statusLabel = 'PROCESSING';
     else if (action === 'comp') statusLabel = 'COMPLETED';
 
-    // Safely update only the line containing the animated loading emoji
+    // Safely update ONLY the order status line (the line containing the animated loading emoji)
     const lines = originalEmbed.description.split('\n');
     const updatedLines = lines.map(line => {
       if (line.includes('')) {
