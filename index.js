@@ -111,7 +111,7 @@ _ _`
       // Queue Channel Embed Description Layout with injected string variables
       const queueDescription = 
 `_ _
-     𓂃 𓈒𓏸‪‪ 𓇼   [ **tid**__a__**l** **w**~~a~~***ves*** ](https://discord.com/channels/\({interaction.guildId}/\){ticketChannelId})  ＃ __ ${currentQueueNum} __
+     𓂃˖°𓇼   [ **tid**__a__**l** **w**~~a~~***ves*** ](https://discord.com/channels/\({interaction.guildId}/\){ticketChannelId})  ＃ __ ${currentQueueNum} __
 ~~                                                                               ~~
 <:blue:1554781672992407552>    ${buyer}
 > \(${item}  <:hearty:1554781762813558804>\)${info}
