@@ -11,7 +11,7 @@ const {
 } = require('discord.js');
 const http = require('http');
 
-// Render web service server
+// Render web service keep-alive server
 http.createServer((req, res) => res.end('Bot is online!')).listen(process.env.PORT || 3000);
 
 const client = new Client({
@@ -24,6 +24,20 @@ const STAFF_ROLE_ID = '1533372358755221566';
 const PASTEL_BLUE = '#AEC6CF';
 
 let queueCounter = 1;
+
+// Helper to format date & time specifically in GMT+8 (Asia/Manila)
+function getGMT8Time() {
+  const options = {
+    timeZone: 'Asia/Manila',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  };
+  return new Intl.DateTimeFormat('en-US', options).format(new Date());
+}
 
 // Command setup
 const commands = [
@@ -56,7 +70,7 @@ client.on('interactionCreate', async (interaction) => {
   // 1. Handle Slash Command
   if (interaction.isChatInputCommand()) {
     if (interaction.commandName === 'queue-list') {
-      // Role Check
+      // Staff Role Check
       if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
         return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
       }
@@ -70,11 +84,10 @@ client.on('interactionCreate', async (interaction) => {
       const staffUser = interaction.user;
 
       const currentQueueNum = queueCounter++;
-      const formattedTimestamp = ``;
 
       await interaction.deferReply({ ephemeral: true });
 
-      // Local Tracker Message Embed
+      // Local Channel Embed Message
       const localEmbed = new EmbedBuilder()
         .setColor(PASTEL_BLUE)
         .setDescription(
@@ -94,9 +107,9 @@ _ _`
       await interaction.channel.send({ embeds: [localEmbed] });
       await interaction.editReply({ content: 'Queue logged successfully!' });
 
-      // Function to generate queue embed text
-      const generateQueueDescription = (status) => {
-        return `_ _
+      // Initial Queue Description Layout
+      const queueDescription = 
+`_ _
      𓂃 𓈒𓏸‪‪ 𓇼   [ **tid**__a__**l** **w**~~a~~***ves*** ](https://discord.com/channels/\({interaction.guildId}/\){ticketChannelId})  ＃ __ ${currentQueueNum} __
 ~~                                                                               ~~
 <:blue:1554781672992407552>    ${buyer}
@@ -104,16 +117,15 @@ _ _`
 > \({payment}  <:hearty:1554781762813558804>\){price}
 _ _
 -# _ _        sea shore  ~~        ~~  ${staffUser}
--# _ _        ${status}   ${formattedTimestamp}
+-# _ _        [ order status ]   ${getGMT8Time()}
 ~~                                                                               ~~
 _ _`;
-      };
 
       const queueEmbed = new EmbedBuilder()
         .setColor(PASTEL_BLUE)
-        .setDescription(generateQueueDescription('[ order status ]'));
+        .setDescription(queueDescription);
 
-      // Gray buttons (ButtonStyle.Secondary)
+      // 3 Gray Action Buttons
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`queue_noted_\({ticketChannelId}_\){buyer.id}`).setEmoji('🐚').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId(`queue_proc_\({ticketChannelId}_\){buyer.id}`).setEmoji('🫧').setStyle(ButtonStyle.Secondary),
@@ -144,31 +156,39 @@ _ _`;
     const originalEmbed = interaction.message.embeds[0];
     if (!originalEmbed) return;
 
-    const updateStatusText = (text, newStatus) => {
-      return text.replace(/-# _ _\s+.*/g, `-# _ _        **${newStatus}** `);
+    // Replace status text and update timestamp to GMT+8
+    const updateEmbedText = (text, newStatus) => {
+      const formattedDate = getGMT8Time();
+      return text.replace(/-# _ _\s+.*\s+.*(\r?\n|\()/g, `-# _ _        **\){newStatus}**   ${formattedDate}\n`);
     };
-
-    // Gray disabled buttons
-    const disabledRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('disabled_1').setEmoji('🐚').setStyle(ButtonStyle.Secondary).setDisabled(true),
-      new ButtonBuilder().setCustomId('disabled_2').setEmoji('🫧').setStyle(ButtonStyle.Secondary).setDisabled(true),
-      new ButtonBuilder().setCustomId('disabled_3').setEmoji('🐋').setStyle(ButtonStyle.Secondary).setDisabled(true)
-    );
 
     let statusLabel = '';
     if (action === 'noted') statusLabel = 'NOTED';
     else if (action === 'proc') statusLabel = 'PROCESSING';
     else if (action === 'comp') statusLabel = 'COMPLETED';
 
-    const updatedDescription = updateStatusText(originalEmbed.description, statusLabel);
+    const updatedDescription = updateEmbedText(originalEmbed.description, statusLabel);
 
     const updatedEmbed = EmbedBuilder.from(originalEmbed)
       .setColor(PASTEL_BLUE)
       .setDescription(updatedDescription);
 
-    await interaction.update({ embeds: [updatedEmbed], components: [disabledRow] });
+    // Disable ONLY the clicked button while keeping others active
+    const updatedComponents = interaction.message.components.map(row => {
+      const newRow = new ActionRowBuilder();
+      row.components.forEach(btn => {
+        const btnBuilder = ButtonBuilder.from(btn);
+        if (btn.customId === customId) {
+          btnBuilder.setDisabled(true);
+        }
+        newRow.addComponents(btnBuilder);
+      });
+      return newRow;
+    });
 
-    // Send buyer notification on completion
+    await interaction.update({ embeds: [updatedEmbed], components: updatedComponents });
+
+    // Send completion alert to ticket channel
     if (action === 'comp') {
       try {
         const ticketChannel = await client.channels.fetch(ticketChannelId);
